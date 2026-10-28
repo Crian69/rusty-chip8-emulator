@@ -115,17 +115,17 @@ impl Chip8 {
 
                 for s in 0..fourth_nibble_n {
                     let spirit = Self::u8_to_bit_array(self.memory[(self.i + s as u16) as usize]);
-                    for b in spirit {
+                    for (i,b) in spirit.iter().enumerate() {
                         flipped = screen.flip_pixel_with_pos_ang_get_flipped_off_flag(
-                            Vec2::new((x + b) as f32, y as f32),
-                            b != 0,
+                            Vec2::new((x + i as u8) as f32, y as f32),
+                            b.to_owned() != 0,
                         );
-                        if x + b > 64 {
+                        if x + b > 63 {
                             break;
                         }
                     }
                     y = y + 1;
-                    if y > 32 {
+                    if y > 31 {
                         break;
                     }
                 }

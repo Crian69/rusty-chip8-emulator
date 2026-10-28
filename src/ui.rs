@@ -1,4 +1,9 @@
-use macroquad::{color, math::Vec2, shapes::draw_rectangle};
+use macroquad::{
+    color::{self, BLACK, WHITE},
+    math::Vec2,
+    shapes::draw_rectangle,
+    text::draw_text,
+};
 
 const SCALING_FACTOR: u32 = 10;
 const HEIGHT: u32 = 32;
@@ -43,24 +48,41 @@ impl Screen {
 
     pub fn paint(&self) {
         for pixel in self.pixels {
+            let x = pixel.pos.x * (SCALING_FACTOR) as f32;
+            let y = pixel.pos.y * (SCALING_FACTOR) as f32;
             if pixel.on {
                 draw_rectangle(
-                    pixel.pos.x * (SCALING_FACTOR) as f32,
-                    pixel.pos.y * (SCALING_FACTOR) as f32,
+                    x,
+                    y,
                     (SCALING_FACTOR) as f32,
                     (SCALING_FACTOR) as f32,
                     color::WHITE,
                 );
             } else {
                 draw_rectangle(
-                    pixel.pos.x * (SCALING_FACTOR) as f32,
-                    pixel.pos.y * (SCALING_FACTOR) as f32,
+                    x,
+                    y,
                     (SCALING_FACTOR) as f32,
                     (SCALING_FACTOR) as f32,
                     color::BLACK,
                 );
             }
         }
+
+        // TODO: Put this in debug flag
+        // let font_size = 12.0;
+        // for pixel in &self.pixels {
+        //     let x = pixel.pos.x;
+        //     let y = pixel.pos.y;
+        //     let sx = pixel.pos.x * (SCALING_FACTOR) as f32;
+        //     let sy = pixel.pos.y * (SCALING_FACTOR) as f32;
+        //     let (text, color) = if pixel.on {
+        //         (format!("{x}|{y}"), BLACK)
+        //     } else {
+        //         (format!("{x}|{y}"), WHITE)
+        //     };
+        //     draw_text(&text, sx, sy + font_size, font_size, color);
+        // }
     }
 
     pub fn clear(&mut self) {
@@ -74,7 +96,7 @@ impl Screen {
             self.pixels[(pos.y * WIDTH as f32 + pos.x) as usize].on = false;
             return true;
         }
-        if !self.pixels[(pos.y * WIDTH as f32 + pos.x) as usize].on {
+        if !self.pixels[(pos.y * WIDTH as f32 + pos.x) as usize].on && state {
             self.pixels[(pos.y * WIDTH as f32 + pos.x) as usize].on = true;
             return false;
         }
