@@ -1,5 +1,8 @@
+use std::collections::HashMap;
+
 use macroquad::{
     color::{self, BLACK, WHITE},
+    input::KeyCode,
     math::Vec2,
     shapes::draw_rectangle,
     text::draw_text,
@@ -103,4 +106,30 @@ impl Screen {
         self.pixels[(pos.y * WIDTH as f32 + pos.x) as usize].on = false;
         return false;
     }
+}
+
+pub fn map_actual_key_to_chip_key(k: KeyCode) -> Option<u8> {
+    let mut char_map: HashMap<KeyCode, u8> = HashMap::new();
+    char_map.insert(KeyCode::Key1, 0x01);
+    char_map.insert(KeyCode::Key2, 0x02);
+    char_map.insert(KeyCode::Key3, 0x03);
+    char_map.insert(KeyCode::Key4, 0x0C);
+    char_map.insert(KeyCode::Q, 0x04);
+    char_map.insert(KeyCode::W, 0x05);
+    char_map.insert(KeyCode::E, 0x06);
+    char_map.insert(KeyCode::R, 0x0D);
+    char_map.insert(KeyCode::A, 0x07);
+    char_map.insert(KeyCode::S, 0x08);
+    char_map.insert(KeyCode::D, 0x09);
+    char_map.insert(KeyCode::F, 0x0E);
+    char_map.insert(KeyCode::Z, 0x0A);
+    char_map.insert(KeyCode::Z, 0x00);
+    char_map.insert(KeyCode::C, 0x0B);
+    char_map.insert(KeyCode::V, 0x0F);
+
+    if let Some(k) = char_map.get(&k) {
+        return Some(k.to_owned());
+    }
+
+    return None;
 }

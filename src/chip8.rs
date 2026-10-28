@@ -1,6 +1,9 @@
-use macroquad::math::Vec2;
+use macroquad::{
+    input::{KeyCode, get_keys_down, is_any_key_down},
+    math::Vec2,
+};
 
-use crate::ui::Screen;
+use crate::ui::{Screen, map_actual_key_to_chip_key};
 use std::fs;
 pub struct Chip8 {
     memory: [u8; 4096],
@@ -15,10 +18,33 @@ pub struct Chip8 {
 
 const INSTRUCTIONS_PER_CYCLE: u16 = 700;
 
+const FONT_START: usize = 0x050;
+// each glyph is 5 bytes tall, 0 to F
+const FONT: [u8; 80] = [
+    0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+    0x20, 0x60, 0x20, 0x20, 0x70, // 1
+    0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+    0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+    0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+    0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+    0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+    0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+    0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+    0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+    0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+    0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+    0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+    0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+    0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+    0xF0, 0x80, 0xF0, 0x80, 0x80, // F
+];
+
 impl Chip8 {
     pub fn new() -> Self {
+        let mut memory = [0x00; 4096];
+        memory[FONT_START..FONT_START + FONT.len()].copy_from_slice(&FONT);
         Self {
-            memory: [0x00; 4096],
+            memory,
             i: 0x00,
             pc: 0x200,
             stack: [0x00; 16],
@@ -42,7 +68,7 @@ impl Chip8 {
     }
 
     pub fn load_rom(&mut self) {
-        let contents = fs::read("roms/itle.ch8").expect("Rom Not Found");
+        let contents = fs::read("roms/test_opcode.ch8").expect("Rom Not Found");
         let start_index = 0x200;
         let end_index = start_index + contents.len();
         self.memory[start_index..end_index].copy_from_slice(&contents);
@@ -50,7 +76,7 @@ impl Chip8 {
 
     fn get_register_value(&self, r: u8) -> u8 {
         let r = r as usize;
-        self.memory[self.registers[r] as usize]
+        self.registers[r]
     }
 
     fn set_register_value(&mut self, r: u8, v: u8) {
@@ -138,7 +164,7 @@ impl Chip8 {
                         self.set_register_value(
                             second_nibble_x,
                             self.get_register_value(third_nibble_y)
-                                ^ self.get_register_value(second_nibble_x),
+                                | self.get_register_value(second_nibble_x),
                         );
                     }
                     0x02 => {
@@ -152,10 +178,11 @@ impl Chip8 {
                         self.set_register_value(
                             second_nibble_x,
                             self.get_register_value(third_nibble_y)
-                                | self.get_register_value(second_nibble_x),
+                                ^ self.get_register_value(second_nibble_x),
                         );
                     }
                     0x04 => {
+                        self.reset_flag();
                         let (sum, of) = self
                             .get_register_value(third_nibble_y)
                             .overflowing_add(self.get_register_value(second_nibble_x));
@@ -267,14 +294,83 @@ impl Chip8 {
                     }
                 }
             }
-            0x0E => {
-                Chip8::not_implemented_instruction(&instruction);
-            }
+            0x0E => match second_byte_nn {
+                0x9E => {
+                    if is_any_key_down() {
+                        let keys: Vec<KeyCode> = get_keys_down().into_iter().collect();
+                        let first_key = keys[0];
+                        let chip_key = map_actual_key_to_chip_key(first_key);
+                        if chip_key.is_some() {
+                            let vr = self.get_register_value(second_nibble_x);
+                            if vr == chip_key.unwrap() {
+                                self.pc += 2
+                            }
+                        }
+                    }
+                }
+                0xA1 => {
+                    if is_any_key_down() {
+                        let keys: Vec<KeyCode> = get_keys_down().into_iter().collect();
+                        let first_key = keys[0];
+                        let chip_key = map_actual_key_to_chip_key(first_key);
+                        if chip_key.is_some() {
+                            let vr = self.get_register_value(second_nibble_x);
+                            if vr != chip_key.unwrap() {
+                                self.pc += 2
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    Chip8::not_implemented_instruction(&instruction);
+                }
+            },
             0x0F => match second_byte_nn {
+                0x07 => {
+                    self.set_register_value(second_nibble_x, self.dt);
+                }
+                0x0A => {
+                    let chip_key = get_keys_down()
+                        .into_iter()
+                        .next()
+                        .and_then(map_actual_key_to_chip_key);
+                    if chip_key.is_none() {
+                        self.pc -= 2;
+                    } else {
+                        self.set_register_value(second_nibble_x, chip_key.unwrap());
+                    }
+                }
+                0x15 => self.dt = self.get_register_value(second_nibble_x),
+                0x18 => self.st = self.get_register_value(second_nibble_x),
                 0x1E => {
                     self.i = self
                         .i
                         .wrapping_add(self.get_register_value(second_nibble_x) as u16);
+                }
+                0x29 => {
+                    let digit = self.get_register_value(second_nibble_x) & 0x0F;
+                    self.i = (FONT_START + digit as usize * 5) as u16;
+                }
+                0x33 => {
+                    let vx = self.get_register_value(second_nibble_x);
+                    let hundredth = vx / 100;
+                    let tenth = (vx / 10) % 10;
+                    let ones = vx % 10;
+
+                    self.memory[self.i as usize] = hundredth;
+                    self.memory[(self.i + 1) as usize] = tenth;
+                    self.memory[(self.i + 2) as usize] = ones;
+                }
+                0x55 => {
+                    for i in 0..=second_nibble_x {
+                        let v = self.get_register_value(i);
+                        self.memory[(self.i + i as u16) as usize] = v;
+                    }
+                }
+                0x65 => {
+                    for i in 0..=second_nibble_x {
+                        self.set_register_value(i, self.memory[(self.i + i as u16) as usize]);
+                    }
                 }
                 _ => {
                     Chip8::not_implemented_instruction(&instruction);
